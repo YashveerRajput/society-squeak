@@ -1,7 +1,7 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { format } from "date-fns";
-import { Clock, Eye, EyeOff, Check, AlertCircle } from "lucide-react";
+import { Clock, Eye, EyeOff, Check, AlertCircle, ChevronDown, ChevronUp, MessageCircle } from "lucide-react";
 import { 
   Card, 
   CardContent, 
@@ -18,9 +18,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Complaint } from "@/context/ComplaintContext";
+import { Complaint, useComplaints } from "@/context/ComplaintContext";
 import { useAuth } from "@/context/AuthContext";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
+import ComplaintReplyForm from "./ComplaintReplyForm";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface ComplaintCardProps {
   complaint: Complaint;
@@ -29,10 +31,39 @@ interface ComplaintCardProps {
 
 const ComplaintCard: React.FC<ComplaintCardProps> = ({ complaint, onStatusChange }) => {
   const { user, allUsers, isAdmin } = useAuth();
+  const { addReplyToComplaint } = useComplaints();
+  const [showReplies, setShowReplies] = useState(false);
+  const [showReplyForm, setShowReplyForm] = useState(false);
+  
   const complainantName = allUsers[complaint.userId]?.name || "Unknown User";
   
   // Only show the media if there is any
   const hasMedia = complaint.media && complaint.media.length > 0;
+  const hasReplies = complaint.replies && complaint.replies.length > 0;
+  
+  const toggleReplies = () => {
+    setShowReplies(!showReplies);
+    if (!showReplies) {
+      setShowReplyForm(false);
+    }
+  };
+  
+  const toggleReplyForm = () => {
+    setShowReplyForm(!showReplyForm);
+    if (!showReplyForm) {
+      setShowReplies(true);
+    }
+  };
+  
+  const handleSubmitReply = (complaintId: string, replyData: { content: string; mediaType?: "text" | "audio" | "video"; mediaUrl?: string; }) => {
+    addReplyToComplaint(complaintId, replyData);
+    setShowReplyForm(false);
+  };
+  
+  const canViewComplaint = complaint.isPublic || 
+                          (user && (user.id === complaint.userId || isAdmin));
+  
+  if (!canViewComplaint) return null;
   
   return (
     <Card className="complaint-card w-full max-w-md overflow-hidden animate-fade-in">
@@ -111,33 +142,122 @@ const ComplaintCard: React.FC<ComplaintCardProps> = ({ complaint, onStatusChange
             ))}
           </div>
         )}
+        
+        {/* Replies Section */}
+        <Collapsible open={showReplies} onOpenChange={setShowReplies} className="mt-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1 text-sm font-medium">
+              <MessageCircle className="h-4 w-4" />
+              <span>Replies ({complaint.replies.length})</span>
+            </div>
+            
+            {hasReplies && (
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                  {showReplies ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </Button>
+              </CollapsibleTrigger>
+            )}
+          </div>
+          
+          <CollapsibleContent className="mt-2">
+            {hasReplies ? (
+              <div className="space-y-3">
+                {complaint.replies.map((reply) => {
+                  const adminName = allUsers[reply.adminId]?.name || "Admin";
+                  
+                  return (
+                    <div key={reply.id} className="bg-slate-50 p-3 rounded-md border text-sm">
+                      <div className="flex justify-between items-start">
+                        <div className="font-medium">{adminName}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {format(reply.createdAt, "MMM d, yyyy")}
+                        </div>
+                      </div>
+                      
+                      <div className="mt-1 text-foreground/90">{reply.content}</div>
+                      
+                      {reply.mediaType && reply.mediaUrl && (
+                        <div className="mt-2 overflow-hidden rounded-md border">
+                          {reply.mediaType === "audio" ? (
+                            <audio src={reply.mediaUrl} controls className="w-full" />
+                          ) : reply.mediaType === "video" ? (
+                            <video src={reply.mediaUrl} controls className="w-full" />
+                          ) : null}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-sm text-muted-foreground py-2">
+                No replies yet.
+              </div>
+            )}
+          </CollapsibleContent>
+        </Collapsible>
+        
+        {/* Admin Reply Form (conditionally rendered) */}
+        {isAdmin && showReplyForm && (
+          <ComplaintReplyForm 
+            complaintId={complaint.id} 
+            onSubmitReply={handleSubmitReply} 
+          />
+        )}
       </CardContent>
       
-      {isAdmin && onStatusChange && (
-        <CardFooter className="pt-0 pb-3">
-          {complaint.status === "pending" ? (
+      <CardFooter className="pt-0 pb-3 flex flex-wrap gap-2">
+        {isAdmin && (
+          <>
+            {onStatusChange && (
+              <Button
+                variant={complaint.status === "pending" ? "default" : "outline"}
+                size="sm"
+                className="flex-1"
+                onClick={() => onStatusChange(complaint.id, complaint.status === "pending" ? "resolved" : "pending")}
+              >
+                {complaint.status === "pending" ? (
+                  <>
+                    <Check className="h-4 w-4 mr-2" />
+                    Mark as Resolved
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle className="h-4 w-4 mr-2" />
+                    Mark as Pending
+                  </>
+                )}
+              </Button>
+            )}
             <Button
-              variant="default" 
+              variant="outline"
               size="sm"
-              className="w-full"
-              onClick={() => onStatusChange(complaint.id, "resolved")}
+              className="flex-1"
+              onClick={toggleReplyForm}
             >
-              <Check className="h-4 w-4 mr-2" />
-              Mark as Resolved
+              <MessageCircle className="h-4 w-4 mr-2" />
+              {showReplyForm ? "Cancel Reply" : "Reply"}
             </Button>
-          ) : (
-            <Button
-              variant="outline" 
-              size="sm"
-              className="w-full"
-              onClick={() => onStatusChange(complaint.id, "pending")}
-            >
-              <AlertCircle className="h-4 w-4 mr-2" />
-              Mark as Pending
-            </Button>
-          )}
-        </CardFooter>
-      )}
+          </>
+        )}
+        
+        {!isAdmin && hasReplies && !showReplies && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full"
+            onClick={toggleReplies}
+          >
+            <MessageCircle className="h-4 w-4 mr-2" />
+            View Replies ({complaint.replies.length})
+          </Button>
+        )}
+      </CardFooter>
     </Card>
   );
 };

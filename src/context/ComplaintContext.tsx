@@ -3,6 +3,15 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "./AuthContext";
 
+export type Reply = {
+  id: string;
+  content: string;
+  createdAt: Date;
+  adminId: string;
+  mediaType?: "text" | "audio" | "video";
+  mediaUrl?: string;
+};
+
 export type Complaint = {
   id: string;
   title: string;
@@ -15,15 +24,17 @@ export type Complaint = {
     type: "image" | "video";
     url: string;
   }[];
+  replies: Reply[];
 };
 
 type ComplaintContextType = {
   complaints: Complaint[];
-  addComplaint: (complaint: Omit<Complaint, "id" | "createdAt" | "userId" | "status">) => void;
+  addComplaint: (complaint: Omit<Complaint, "id" | "createdAt" | "userId" | "status" | "replies">) => void;
   updateComplaintStatus: (id: string, status: "pending" | "resolved") => void;
   getUserComplaints: (userId: string) => Complaint[];
   getPublicComplaints: () => Complaint[];
   getAllComplaints: () => Complaint[];
+  addReplyToComplaint: (complaintId: string, reply: Omit<Reply, "id" | "createdAt" | "adminId">) => void;
 };
 
 const ComplaintContext = createContext<ComplaintContextType | undefined>(undefined);
@@ -38,6 +49,7 @@ const mockComplaints: Complaint[] = [
     createdAt: new Date("2023-09-15T10:30:00"),
     userId: "user1",
     media: [{ type: "image", url: "https://images.unsplash.com/photo-1623181748498-f29309b883d6?auto=format&fit=crop&w=800&q=80" }],
+    replies: [],
   },
   {
     id: "complaint2",
@@ -48,6 +60,15 @@ const mockComplaints: Complaint[] = [
     createdAt: new Date("2023-09-10T08:15:00"),
     userId: "user2",
     media: [],
+    replies: [
+      {
+        id: "reply1",
+        content: "We've contacted the elevator maintenance company. They will be fixing it tomorrow.",
+        createdAt: new Date("2023-09-11T09:00:00"),
+        adminId: "admin1",
+        mediaType: "text",
+      }
+    ],
   },
   {
     id: "complaint3",
@@ -58,6 +79,7 @@ const mockComplaints: Complaint[] = [
     createdAt: new Date("2023-09-12T23:45:00"),
     userId: "user1",
     media: [{ type: "video", url: "https://example.com/video.mp4" }],
+    replies: [],
   },
 ];
 
@@ -76,6 +98,10 @@ export const ComplaintProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const complaintsWithDates = parsedComplaints.map((c: any) => ({
           ...c,
           createdAt: new Date(c.createdAt),
+          replies: c.replies ? c.replies.map((r: any) => ({
+            ...r,
+            createdAt: new Date(r.createdAt),
+          })) : [],
         }));
         setComplaints(complaintsWithDates);
       } catch (e) {
@@ -94,7 +120,7 @@ export const ComplaintProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, [complaints]);
 
-  const addComplaint = (complaintData: Omit<Complaint, "id" | "createdAt" | "userId" | "status">) => {
+  const addComplaint = (complaintData: Omit<Complaint, "id" | "createdAt" | "userId" | "status" | "replies">) => {
     if (!user) {
       toast({
         variant: "destructive",
@@ -110,6 +136,7 @@ export const ComplaintProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       createdAt: new Date(),
       userId: user.id,
       status: "pending",
+      replies: [],
     };
 
     setComplaints((prev) => [...prev, newComplaint]);
@@ -130,6 +157,37 @@ export const ComplaintProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     toast({
       title: "Status updated",
       description: `Complaint has been marked as ${status}`,
+    });
+  };
+
+  const addReplyToComplaint = (complaintId: string, replyData: Omit<Reply, "id" | "createdAt" | "adminId">) => {
+    if (!user || !user.isAdmin) {
+      toast({
+        variant: "destructive",
+        title: "Admin authorization required",
+        description: "Only admins can reply to complaints",
+      });
+      return;
+    }
+
+    const newReply: Reply = {
+      ...replyData,
+      id: `reply${Date.now()}`,
+      createdAt: new Date(),
+      adminId: user.id,
+    };
+
+    setComplaints((prev) => 
+      prev.map((complaint) => 
+        complaint.id === complaintId
+          ? { ...complaint, replies: [...complaint.replies, newReply] }
+          : complaint
+      )
+    );
+    
+    toast({
+      title: "Reply sent",
+      description: "Your reply has been added to the complaint",
     });
   };
 
@@ -156,6 +214,7 @@ export const ComplaintProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         getUserComplaints,
         getPublicComplaints,
         getAllComplaints,
+        addReplyToComplaint,
       }}
     >
       {children}
