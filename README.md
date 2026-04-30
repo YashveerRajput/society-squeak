@@ -1,8 +1,44 @@
-# Welcome to your Lovable project
+# SocietySqueak 🏢🔊
 
-## Project info
+SocietySqueak is a web-based platform built to simplify communication and issue management within residential societies. It provides a centralized system where residents can raise complaints, track their status, and stay updated with important announcements.
 
-**URL**: https://lovable.dev/projects/7ed50e17-bbb1-4497-b649-30f44abd1cd1
+## 🚀 Features
+
+- 📝 Raise and manage complaints easily
+- 📊 Track complaint status in real-time
+- 🔔 Notifications for updates and announcements
+- 👥 User-friendly interface for residents and admins
+- ⚡ Fast and responsive UI
+
+## 🛠️ Tech Stack
+
+- Frontend: React.js / Next.js
+- Backend: Node.js / Express.js
+- Database: MongoDB (if used)
+- Deployment: Vercel
+
+## 💡 Purpose
+
+Managing society-related issues manually can be inefficient and unorganized. SocietySqueak aims to digitize and streamline this process, improving transparency and communication between residents and management.
+
+## 📌 Future Improvements
+
+- Role-based authentication (Admin/User)
+- Real-time chat or discussion system
+- Mobile app version
+- Analytics dashboard for admins
+
+## 🌐 Live Demo
+
+👉 https://societysqueak.vercel.app/
+
+## 🤝 Contributing
+
+Contributions are welcome! Feel free to fork the repo and submit a pull request.
+
+---
+
+Made with ❤️ by Yashveer Singh Rajput
 
 ## How can I edit this code?
 
